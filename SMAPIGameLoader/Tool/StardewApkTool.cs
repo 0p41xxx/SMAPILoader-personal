@@ -1,123 +1,89 @@
 ﻿using Android.App;
 using Android.Content.PM;
-using Android.OS;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SMAPIGameLoader;
 
 internal static class StardewApkTool
 {
-    public const string GamePlayStorePackageName = "com.chucklefish.stardewvalley";
-    public const string GameGalaxyStorePackageName = "com.chucklefish.stardewvalleysamsung";
-    static bool IsGameFromPlayStore = false;
-    static bool IsGameFromGalaxyStore = false;
-    static PackageInfo _currentPackageInfo;
+    private static PackageInfo _currentPackageInfo;
 
-    //init at first SDK
-    static StardewApkTool()
+    /// <summary>
+    /// Load APK metadata directly from a file path (sideloaded/third-party).
+    /// </summary>
+    public static void LoadFromApkPath(string apkPath)
     {
-        Console.WriteLine("Initialize Stardew Apk Tool");
-        var playStore = ApkTool.GetPackageInfo(GamePlayStorePackageName);
-        var samsung = ApkTool.GetPackageInfo(GameGalaxyStorePackageName);
+        try
+        {
+            var pm = Application.Context.PackageManager;
+            var info = pm.GetPackageArchiveInfo(apkPath, PackageInfoFlags.MetaData);
 
-        //select samsung first, better for debug, test app
-        if (samsung != null)
-        {
-            _currentPackageInfo = samsung;
-            IsGameFromGalaxyStore = true;
-            Console.WriteLine("Game Install From Galaxy Store");
+            if (info == null)
+                throw new Exception("Invalid APK file: " + apkPath);
+
+            info.ApplicationInfo.SourceDir = apkPath;
+            info.ApplicationInfo.PublicSourceDir = apkPath;
+
+            _currentPackageInfo = info;
+            Console.WriteLine("Loaded Stardew APK from: " + apkPath);
         }
-        else if (playStore != null)
+        catch (Exception ex)
         {
-            _currentPackageInfo = playStore;
-            IsGameFromPlayStore = true;
-            Console.WriteLine("Game Install From Play Store");
+            Console.WriteLine("Error loading APK: " + ex);
+            _currentPackageInfo = null;
+        }
+    }
+
+    /// <summary>
+    /// Try to auto-detect an installed Stardew package (any with 'stardew' in its name).
+    /// </summary>
+    public static void AutoDetectInstalled()
+    {
+        try
+        {
+            var pm = Application.Context.PackageManager;
+            foreach (var pkg in pm.GetInstalledPackages(PackageInfoFlags.MetaData))
+            {
+                if (pkg.PackageName.Contains("stardew", StringComparison.OrdinalIgnoreCase))
+                {
+                    _currentPackageInfo = pkg;
+                    Console.WriteLine("Found installed Stardew package: " + pkg.PackageName);
+                    return;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error scanning packages: " + ex);
         }
     }
 
     public static PackageInfo CurrentPackageInfo => _currentPackageInfo;
 
-    public static bool IsInstalled
-    {
-        get
-        {
-            if (CurrentPackageInfo == null)
-                return false;
-
-            //play store
-            if (IsGameFromPlayStore)
-            {
-                var version = CurrentPackageInfo.VersionName;
-                var splitApks = CurrentPackageInfo.ApplicationInfo?.SplitSourceDirs;
-                return splitApks?.Count == 2;
-            }
-
-            //samsung
-            return true;
-        }
-    }
+    public static bool IsInstalled => _currentPackageInfo != null;
 
     public static Android.Content.Context GetContext => Application.Context;
-    public static string? BaseApkPath => CurrentPackageInfo?.ApplicationInfo?.PublicSourceDir;
-    public static string? ContentApkPath
+
+    public static string? BaseApkPath => _currentPackageInfo?.ApplicationInfo?.PublicSourceDir;
+
+    public static string? ContentApkPath => BaseApkPath;
+
+    public static Version GameVersionSupport => new Version(1, 6, 15, 0);
+
+    public static Version CurrentGameVersion
     {
         get
         {
             try
             {
-                if (CurrentPackageInfo == null)
-                    return null;
-
-                //play store
-                if (IsGameFromPlayStore)
-                    return CurrentPackageInfo.ApplicationInfo.SplitSourceDirs?.First(path => path.Contains("split_content"));
-
-                //samsung
-                return BaseApkPath;
+                return new Version(_currentPackageInfo?.VersionName ?? "0.0.0.0");
             }
-            catch (Exception ex)
+            catch
             {
-                ErrorDialogTool.Show(ex, "Error try to get ContentApkPath");
-                return null;
+                return new Version(0, 0, 0, 0);
             }
         }
     }
 
-    public static Version GameVersionSupport
-    {
-        get
-        {
-            if (CurrentPackageInfo == null)
-                return null;
-
-            switch (CurrentPackageInfo.PackageName)
-            {
-                case GamePlayStorePackageName:
-                    return new(1, 6, 15, 0);
-                case GameGalaxyStorePackageName:
-                    return new(1, 6, 14, 8);
-                default:
-                    return null;
-            }
-        }
-    }
-    public static Version CurrentGameVersion 
-    {
-        get
-        {
-            try
-            {
-                return new Version(CurrentPackageInfo?.VersionName);
-            }
-            catch(Exception ex)
-            {
-                return new Version(0,0,0,0);
-            }
-        }
-    }
     public static bool IsGameVersionSupport => CurrentGameVersion >= GameVersionSupport;
 }
