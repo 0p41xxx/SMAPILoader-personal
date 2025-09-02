@@ -9,7 +9,6 @@ using Xamarin.Essentials;
 using AndroidX.AppCompat.App;
 using System.Text;
 
-
 namespace SMAPIGameLoader.Launcher;
 
 [Activity(
@@ -36,14 +35,14 @@ public class LauncherActivity : AppCompatActivity
         Platform.Init(this, savedInstanceState);
         ActivityTool.Init(this);
 
-        //assert
+        // assert requirements
         AssertRequirement();
 
-        //ready
+        // ready
         OnReadyToSetupLayoutPage();
         SetDarkMode();
 
-        //run utils scripts
+        // run utils scripts
         ProcessAdbExtras();
     }
 
@@ -53,7 +52,7 @@ public class LauncherActivity : AppCompatActivity
     }
 
     /// <summary>
-    ///     Receive argument launch activity
+    /// Receive argument launch activity
     /// </summary>
     private void ProcessAdbExtras()
     {
@@ -69,26 +68,13 @@ public class LauncherActivity : AppCompatActivity
         {
             if (StardewApkTool.IsInstalled == false)
             {
-                var currentPackage = StardewApkTool.CurrentPackageInfo;
-                if (currentPackage != null)
-                    switch (currentPackage.PackageName)
-                    {
-                        case StardewApkTool.GamePlayStorePackageName:
-                            ToastNotifyTool.Notify("Please Download Game From Play Store");
-                            break;
-                        case StardewApkTool.GameGalaxyStorePackageName:
-                            ToastNotifyTool.Notify("Please Download Game From Galaxy Store");
-                            break;
-                    }
-                else
-                    ToastNotifyTool.Notify("Please Download Game From Play Store Or Galaxy Store");
-
+                ToastNotifyTool.Notify("No Stardew Valley APK selected or detected.");
                 return false;
             }
         }
         catch (Exception ex)
         {
-            ToastNotifyTool.Notify("err;" + ex);
+            ToastNotifyTool.Notify("Error verifying game APK: " + ex.Message);
             return false;
         }
 
@@ -97,34 +83,29 @@ public class LauncherActivity : AppCompatActivity
 
     private void AssertRequirement()
     {
-        //check if 32bit not support
+        // check if 32bit not support
         if (IsDeviceSupport is false)
         {
-            ToastNotifyTool.Notify("Not support on device 32bit");
+            ToastNotifyTool.Notify("Not supported on 32-bit devices");
             Finish();
             return;
         }
 
-        //Assert Game Requirement
+        // Assert Game Requirement
         if (AssetGameVerify() == false)
         {
             Finish();
             return;
         }
-
     }
-
 
     private void OnReadyToSetupLayoutPage()
     {
-
-        //setup bind events
+        // setup bind events
         try
         {
             FindViewById<Button>(ResourceConstant.Id.InstallSMAPIZip).Click += SMAPIInstaller.OnClickInstallSMAPIZip;
             FindViewById<Button>(ResourceConstant.Id.UploadLog).Click += LogParser.OnClickUploadLog;
-            //Work In Progress
-            //FindViewById<Button>(ResourceConstant.Id.SaveImportFromSavesZip).Click += SaveManager.OnClickImportSaveZip;
 
             var startGameBtn = FindViewById<Button>(ResourceConstant.Id.StartGame);
             startGameBtn.Click += (sender, e) => { OnClickStartGame(); };
@@ -140,11 +121,10 @@ public class LauncherActivity : AppCompatActivity
             return;
         }
 
-        //set launcher text info
+        // set launcher text info
         try
         {
             var launcherInfoLines = new StringBuilder();
-            //set app version
             launcherInfoLines.AppendLine("Launcher Version: " + AppInfo.VersionString);
 
             var buildDateTimeOffset = DateTimeOffset.FromUnixTimeSeconds(int.Parse(AppInfo.BuildString));
@@ -152,14 +132,10 @@ public class LauncherActivity : AppCompatActivity
             var localDateTimeString = localDateTimeOffset.ToString("HH:mm:ss dd/MM/yyyy");
             launcherInfoLines.AppendLine($"Build: {localDateTimeString} (d/m/y)");
 
-            //set support game version
             launcherInfoLines.AppendLine($"Support Game Version: {StardewApkTool.GameVersionSupport} Or Later");
             launcherInfoLines.AppendLine("Your Game Version: " + StardewApkTool.CurrentGameVersion);
-            launcherInfoLines.AppendLine("Discord: Stardew SMAPI Thailand");
-            launcherInfoLines.AppendLine("Owner: NRTnarathip");
 
             FindViewById<TextView>(ResourceConstant.Id.launcherInfoTextView).Text = launcherInfoLines.ToString();
-
         }
         catch (Exception ex)
         {
@@ -167,10 +143,8 @@ public class LauncherActivity : AppCompatActivity
             ErrorDialogTool.Show(ex);
         }
 
-        //init ui info
+        // init ui info
         NotifyInstalledSMAPIInfo();
-
-
     }
 
     private void NotifyInstalledSMAPIInfo()
